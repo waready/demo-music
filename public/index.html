@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Music Player</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Real-time Music Player</h1>
+    <form id="download-form">
+        <label for="url">YouTube URL:</label>
+        <input type="text" id="url" name="url" required>
+        <button type="submit">Download MP3</button>
+    </form>
+    <div id="result" style="display: none;">
+        <h2>Now Playing</h2>
+        <p><strong>Title:</strong> <span id="title"></span></p>
+        <p><strong>Artist:</strong> <span id="artist"></span></p>
+        <audio id="audio-player" controls>
+            <source id="audio-source" src="" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <button id="play-button">Play</button>
+        <button id="stop-button">Stop</button>
+        <button id="previous-button">Previous</button>
+        <button id="next-button">Next</button>
+    </div>
+
+    <div id="playlist">
+        <h2>Playlist</h2>
+        <ul id="playlist-items"></ul>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000');
+        const audioPlayer = document.getElementById('audio-player');
+        const playButton = document.getElementById('play-button');
+        const stopButton = document.getElementById('stop-button');
+        const previousButton = document.getElementById('previous-button');
+        const nextButton = document.getElementById('next-button');
+        const playlistItems = document.getElementById('playlist-items');
+        let isSyncing = false;
+
+        // Función para obtener la lista de reproducción desde el servidor
+        function fetchPlaylist() {
+            fetch('http://localhost:3000/playlist')
+                .then(response => response.json())
+                .then(playlist => {
+                    updatePlaylist(playlist);
+                })
+                .catch(error => console.error('Error fetching playlist:', error));
+        }
+
+        document.getElementById('download-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = document.getElementById('url').value;
+            fetch(`http://localhost:3000/download?url=${encodeURIComponent(url)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        // Emitir la nueva canción a todos los clientes
+                        socket.emit('playSong', {
+                            title: data.title,
+                            artist: data.artist,
+                            audioPath: data.audio_path
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to download audio');
+                });
+        });
+
+        socket.on('newSong', (song) => {
+            document.getElementById('title').textContent = song.title;
+            document.getElementById('artist').textContent = song.artist;
+            document.getElementById('audio-source').src = song.audioPath;
+            audioPlayer.load();
+            audioPlayer.play();
+            document.getElementById('result').style.display = 'block';
+            isSyncing = true;
+            socket.emit('requestSync');
+            fetchPlaylist(); // Actualizar la lista de reproducción cuando se agrega una nueva canción
+        });
+
+        socket.on('syncTime', ({ time, isPlaying }) => {
+            const currentTime = audioPlayer.currentTime;
+            const offset = Math.abs(currentTime - time);
+            if (offset > 1) {
+                audioPlayer.currentTime = time;
+            }
+            if (isPlaying) {
+                audioPlayer.play();
+            } else {
+                audioPlayer.pause();
+            }
+            isSyncing = false;
+        });
+
+        playButton.addEventListener('click', () => {
+            socket.emit('play');
+        });
+
+        stopButton.addEventListener('click', () => {
+            socket.emit('stop');
+        });
+
+        previousButton.addEventListener('click', () => {
+            socket.emit('previous');
+        });
+
+        nextButton.addEventListener('click', () => {
+            socket.emit('next');
+        });
+
+        audioPlayer.addEventListener('playing', () => {
+            isSyncing = true;
+        });
+
+        // Emitir evento 'seek' cuando se cambia la barra de tiempo
+        // audioPlayer.addEventListener('seeked', () => {
+        //     socket.emit('seek', audioPlayer.currentTime);
+        // });
+
+        audioPlayer.addEventListener('ended', () => {
+            socket.emit('songEnded');
+        });
+
+        socket.on('play', () => {
+            audioPlayer.play();
+        });
+
+        socket.on('stop', () => {
+            audioPlayer.pause();
+        });
+
+        socket.on('seek', (time) => {
+            audioPlayer.currentTime = time;
+        });
+
+        socket.on('updatePlaylist', () => {
+            fetchPlaylist(); // Actualizar la lista de reproducción cuando cambie desde el backend
+        });
+
+        function updatePlaylist(playlist) {
+            playlistItems.innerHTML = '';
+            playlist.forEach((song, index) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${index + 1}. ${song.title} - ${song.artist}`;
+                playlistItems.appendChild(listItem);
+            });
+        }
+
+        // Obtener la lista de reproducción inicial al cargar la página
+        fetchPlaylist();
+    </script>
+</body>
+</html>
