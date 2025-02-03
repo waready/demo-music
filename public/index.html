@@ -78,7 +78,7 @@
         socket.on('newSong', (song) => {
             document.getElementById('title').textContent = song.title;
             document.getElementById('artist').textContent = song.artist;
-            document.getElementById('audio-source').src = song.audioPath;
+            document.getElementById('audio-source').src = `http://localhost:3000/${song.audioPath}`;
             audioPlayer.load();
             audioPlayer.play();
             document.getElementById('result').style.display = 'block';
