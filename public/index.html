@@ -33,7 +33,7 @@
     </div>
 
     <script>
-        const socket = io('http://localhost:3000');
+        const socket = io('http://24.199.91.62/');
         const audioPlayer = document.getElementById('audio-player');
         const playButton = document.getElementById('play-button');
         const stopButton = document.getElementById('stop-button');
@@ -44,7 +44,7 @@
 
         // Función para obtener la lista de reproducción desde el servidor
         function fetchPlaylist() {
-            fetch('http://localhost:3000/playlist')
+            fetch('http://24.199.91.62/playlist')
                 .then(response => response.json())
                 .then(playlist => {
                     updatePlaylist(playlist);
@@ -55,7 +55,7 @@
         document.getElementById('download-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const url = document.getElementById('url').value;
-            fetch(`http://localhost:3000/download?url=${encodeURIComponent(url)}`)
+            fetch(`http://24.199.91.62/download?url=${encodeURIComponent(url)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -78,7 +78,7 @@
         socket.on('newSong', (song) => {
             document.getElementById('title').textContent = song.title;
             document.getElementById('artist').textContent = song.artist;
-            document.getElementById('audio-source').src = `http://localhost:3000/${song.audioPath}`;
+            document.getElementById('audio-source').src = `http://24.199.91.62/${song.audioPath}`;
             audioPlayer.load();
             audioPlayer.play();
             document.getElementById('result').style.display = 'block';
